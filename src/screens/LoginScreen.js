@@ -18,7 +18,7 @@ export default function Login() {
     }
 
     try {
-      const response = await axios.post("http://192.168.1.42:4000/api/auth/login", { email, password });
+      const response = await axios.post("http://localhost:4000/api/auth/login", { email, password });
       console.log("Réponse de l'API :", response.data);
       Alert.alert("Succès", "Connexion réussie !");
       console.log("Token de connexion :", response.data.token);

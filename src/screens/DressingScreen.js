@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect } from "react";
 import {
   View, Text, TouchableOpacity, Alert, Image, FlatList, Modal,
-  ScrollView, TextInput, ActivityIndicator
+  ScrollView, TextInput, ActivityIndicator, LayoutAnimation, Platform, UIManager, Animated, Easing
 } from "react-native";
 import tw from "twrnc";
 import * as ImagePicker from "expo-image-picker";
@@ -30,6 +30,8 @@ export default function DressingScreen() {
     style: "",
   });
   const [showFilters, setShowFilters] = useState(false);
+  const rotation = useState(new Animated.Value(0))[0]; // 0 = fermé, 1 = ouvert
+
 
   
 
@@ -42,11 +44,39 @@ export default function DressingScreen() {
         Alert.alert('Permission requise', 'Autorisez l’accès à la galerie.');
       }
     })();
+
+    if (Platform.OS === "android") {
+      UIManager.setLayoutAnimationEnabledExperimental &&
+        UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
   }, []);
+
+  const rotateStyle = {
+    transform: [
+      {
+        rotate: rotation.interpolate({
+          inputRange: [0, 1],
+          outputRange: ["0deg", "180deg"],
+        }),
+      },
+    ],
+  };
+  
+
+  const toggleFilters = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    Animated.timing(rotation, {
+      toValue: showFilters ? 0 : 1,
+      duration: 300,
+      useNativeDriver: true,
+      easing: Easing.inOut(Easing.ease),
+    }).start();
+    setShowFilters(!showFilters);
+  };
 
   const fetchClothingItems = async () => {
     try {
-      const response = await axios.get('http://192.168.1.42:4001/api/clothing', {
+      const response = await axios.get('http://localhost:4001/api/clothing', {
         params: { userId },
         headers: { Authorization: "Bearer " + userToken },
       });
@@ -88,7 +118,7 @@ export default function DressingScreen() {
           name: "photo.jpg",
         });
         formData.append("userId", userId);
-        await axios.post("http://192.168.1.42:4002/analyze", formData, {
+        await axios.post("http://localhost:4002/analyze", formData, {
           headers: {
             "Content-Type": "multipart/form-data",
             Authorization: "Bearer " + userToken,
@@ -139,7 +169,7 @@ export default function DressingScreen() {
     
     setRecommending(true);
     try {
-      const response = await axios.post("http://192.168.1.42:4002/recommendation", {
+      const response = await axios.post("http://localhost:4002/recommendation", {
         userId,
         style,
         weather,
@@ -161,7 +191,7 @@ export default function DressingScreen() {
             text: "Oui, enregistrer",
             onPress: async () => {
               try {
-                await axios.post("http://192.168.1.42:4001/api/outfits", {
+                await axios.post("http://localhost:4001/api/outfits", {
                   clothingIds: response.data.selectedItemIds,
                   name: `Tenue ${style} du ${new Date().toLocaleDateString()}`,
                 }, {
@@ -247,77 +277,82 @@ export default function DressingScreen() {
   return (
     <View style={tw`flex-1 bg-white p-5 pt-15`}>
       <Text style={tw`text-2xl font-bold mb-4`}>Mon Dressing</Text>
-
       {suggestedIds.length > 0 && renderSuggestion()}
       <TouchableOpacity
-        onPress={() => setShowFilters(!showFilters)}
-        style={tw`mb-3 self-start bg-gray-100 px-4 py-2 rounded-full`}
+        onPress={toggleFilters}
+        style={tw`mb-3 bg-gray-100 w-45 px-4 py-2 rounded-full flex-row items-center gap-2`}
       >
-        <Text style={tw`text-sm`}>{showFilters ? "Masquer les filtres ▲" : "Afficher les filtres ▼"}</Text>
+        <Text style={tw`text-sm text-black`}>
+          {showFilters ? "Masquer les filtres" : "Afficher les filtres"}
+        </Text>
+        <Animated.View style={rotateStyle}>
+          <Ionicons name="chevron-down" size={16} color="black" />
+        </Animated.View>
       </TouchableOpacity>
+
+
+
       {showFilters && (
-      <View style={tw`mb-4`}>
-  <Text style={tw`text-sm font-semibold mb-1`}>Type :</Text>
-<ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`mb-1`}>
-  {types.map((t) => (
-    <FilterButton
-      key={t}
-      label={t}
-      value={t}
-      selected={filters.type === t}
-      onPress={(val) => setFilters({ ...filters, type: val })}
-    />
-  ))}
-</ScrollView>
+        <ScrollView style={tw`p-4 mb-6 h-50 bg-gray-100 rounded-lg`}>
+          <Text style={tw`text-sm font-semibold mb-1`}>Type :</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`mb-1`}>
+            {types.map((t) => (
+              <FilterButton
+                key={t}
+                label={t}
+                value={t}
+                selected={filters.type === t}
+                onPress={(val) => setFilters({ ...filters, type: val })}
+              />
+            ))}
+          </ScrollView>
 
+          <Text style={tw`text-sm font-semibold mb-1`}>Couleur :</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`mb-1`}>
+            {colors.map((c) => (
+              <FilterButton
+                key={c}
+                label={c}
+                value={c}
+                selected={filters.color === c}
+                onPress={(val) => setFilters({ ...filters, color: val })}
+              />
+            ))}
+          </ScrollView>
 
-<Text style={tw`text-sm font-semibold mb-1`}>Couleur :</Text>
-<ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`mb-1`}>
-  {colors.map((c) => (
-    <FilterButton
-      key={c}
-      label={c}
-      value={c}
-      selected={filters.color === c}
-      onPress={(val) => setFilters({ ...filters, color: val })}
-    />
-  ))}
-</ScrollView>
+          <Text style={tw`text-sm font-semibold mt-3 mb-1`}>Saison :</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`mb-1`}>
+          {seasons.map((s) => (
+            <FilterButton
+              key={s}
+              label={s}
+              value={s}
+              selected={filters.season === s}
+              onPress={(val) => setFilters({ ...filters, season: val })}
+            />
+          ))}
+          </ScrollView>
 
+          <Text style={tw`text-sm font-semibold mt-3 mb-1`}>Style :</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`mb-1`}>
+          {styles.map((s) => (
+            <FilterButton
+              key={s}
+              label={s}
+              value={s}
+              selected={filters.style === s}
+              onPress={(val) => setFilters({ ...filters, style: val })}
+            />
+          ))}
+          </ScrollView>
 
-  <Text style={tw`text-sm font-semibold mt-3 mb-1`}>Saison :</Text>
-  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`mb-1`}>
-  {seasons.map((s) => (
-    <FilterButton
-      key={s}
-      label={s}
-      value={s}
-      selected={filters.season === s}
-      onPress={(val) => setFilters({ ...filters, season: val })}
-    />
-  ))}
-</ScrollView>
-
-  <Text style={tw`text-sm font-semibold mt-3 mb-1`}>Style :</Text>
-  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`mb-1`}>
-  {styles.map((s) => (
-    <FilterButton
-      key={s}
-      label={s}
-      value={s}
-      selected={filters.style === s}
-      onPress={(val) => setFilters({ ...filters, style: val })}
-    />
-  ))}
-</ScrollView>
-
-  <TouchableOpacity
-    onPress={() => setFilters({ type: "", color: "", season: "", style: "" })}
-    style={tw`bg-red-500 mt-3 py-2 px-4 rounded-full self-start`}
-  >
-    <Text style={tw`text-white text-sm`}>Réinitialiser les filtres</Text>
-  </TouchableOpacity>
-</View>
+          <TouchableOpacity
+            onPress={() => setFilters({ type: "", color: "", season: "", style: "" })}
+            style={tw`bg-red-500 mt-3 mb-5 py-2 px-4 rounded-full self-start`}
+          >
+            <Text style={tw`text-white text-sm`}>Réinitialiser les filtres</Text>
+          </TouchableOpacity>
+        </ScrollView>
       )}
 
 <FlatList
@@ -376,7 +411,10 @@ export default function DressingScreen() {
     <View style={tw`bg-white w-11/12 p-5 rounded-xl`}>
       {selectedItem && !isEditing && (
         <>
-          <Image source={{ uri: selectedItem.imageUrl }} style={tw`w-full h-60 rounded mb-4`} resizeMode="cover" />
+          <Image
+            source={{ uri: selectedItem.imageUrl }}
+            style={tw`w-full h-100 rounded mb-4 border border-black`}
+          />
           <Text style={tw`text-xl font-bold`}>{selectedItem.type}</Text>
           <Text style={tw`text-base text-gray-600`}>{selectedItem.brand}</Text>
           <Text style={tw`text-sm text-gray-500 mt-2`}>Couleur : {selectedItem.color}</Text>
@@ -398,7 +436,7 @@ export default function DressingScreen() {
                     text: "Supprimer",
                     onPress: async () => {
                       try {
-                        await axios.delete(`http://192.168.1.42:4001/api/clothing/${selectedItem.id}`, {
+                        await axios.delete(`http://localhost:4001/api/clothing/${selectedItem.id}`, {
                           headers: { Authorization: "Bearer " + userToken },
                         });
                         fetchClothingItems();
@@ -470,7 +508,7 @@ export default function DressingScreen() {
             style={tw`bg-green-500 p-3 rounded`}
             onPress={async () => {
               try {
-                await axios.put(`http://192.168.1.42:4001/api/clothing/${selectedItem.id}`, selectedItem, {
+                await axios.put(`http://localhost:4001/api/clothing/${selectedItem.id}`, selectedItem, {
                   headers: { Authorization: "Bearer " + userToken },
                 });
                 fetchClothingItems();

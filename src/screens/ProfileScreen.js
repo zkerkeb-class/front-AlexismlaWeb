@@ -1,14 +1,32 @@
-import React from "react";
 import { View, Text, Image, TouchableOpacity, ScrollView, Alert } from "react-native";
 import tw from "twrnc";
 import { AuthContext } from "../context/AuthContext";
-import { useContext } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import axios from "axios";
 
 
 const ProfileScreen = () => {
     const { logout, userId, userToken } = useContext(AuthContext);
+    const [userData, setUserData] = useState(null);
+
+    useEffect(() => {
+      const fetchUser = async () => {
+        try {
+          const response = await axios.get("http://localhost:4000/api/auth/me", {
+            headers: {
+              Authorization: `Bearer ${userToken}`,
+            },
+          });
+          setUserData(response.data.user);
+        } catch (error) {
+          console.error("Erreur lors de la récupération de l'utilisateur :", error);
+        }
+      };
+    
+      fetchUser();
+    }, []);
+    
     const handleLogout = async () => {
         await logout();
         console.log("Déconnexion réussie !");
@@ -28,7 +46,7 @@ const ProfileScreen = () => {
                 text: "Supprimer",
                 onPress: async () => {
                   try {
-                    const response = await axios.delete(`http://192.168.1.42:4000/api/auth/delete/${userId}`,
+                    const response = await axios.delete(`http://localhost:4000/api/auth/delete/${userId}`,
                       {
                         headers: {
                           Authorization: `Bearer ${userToken}`,
@@ -61,8 +79,12 @@ const ProfileScreen = () => {
           source={{ uri: "https://via.placeholder.com/100" }}
           style={tw`w-24 h-24 rounded-full mb-3`}
         />
-        <Text style={tw`text-xl font-bold mb-1`}>John Doe</Text>
-        <Text style={tw`text-gray-500`}>johndoe@example.com</Text>
+        <Text style={tw`text-xl font-bold mb-1`}>
+          {userData?.email || "Chargement..."}
+        </Text>
+        <Text style={tw`text-gray-500`}>
+          {userData?.createdAt ? new Date(userData.createdAt).toLocaleDateString() : ""}
+        </Text>
       </View>
 
       {/* Section Informations personnelles */}

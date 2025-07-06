@@ -27,7 +27,7 @@ export default function Register() {
       return;
     }
       try {
-      const response = await axios.post("http://192.168.1.42:4000/api/auth/register", { email, password });
+      const response = await axios.post("http://localhost:4000/api/auth/register", { email, password });
       console.log("Réponse de l'API :", response.data);
       await login(response.data.token, response.data.user.id);
       Alert.alert("Succès", "Inscription réussie !");

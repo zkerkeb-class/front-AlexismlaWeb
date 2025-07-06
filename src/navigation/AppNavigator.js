@@ -7,6 +7,8 @@ import UploadScreen from "../screens/UploadScreen";
 import OutfitsScreen from "../screens/OutfitsScreen";
 import HomeScreen from "../screens/HomeScreen";
 import ProfileScreen from "../screens/ProfileScreen";
+import PaymentSuccessScreen from "../screens/PaymentSuccessScreen";
+import PaymentCancelScreen from "../screens/PaymentCancelScreen";
 import BottomTabNavigator from "./BottomTabNavigator"; // ✅ Import du menu du bas
 
 const Stack = createNativeStackNavigator();
@@ -23,6 +25,8 @@ const AppNavigator = () => {
           <Stack.Screen name="Outfits" component={OutfitsScreen} />
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
+          <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
+          <Stack.Screen name="PaymentCancel" component={PaymentCancelScreen} />
         </>
       ) : (
         <>

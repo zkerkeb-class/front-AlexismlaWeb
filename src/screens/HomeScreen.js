@@ -13,6 +13,7 @@ import tw from "twrnc";
 import * as Location from "expo-location";
 import axios from "axios";
 import { AuthContext } from "../context/AuthContext";
+import TokenDialog from "../components/TokenDialog";
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -42,7 +43,7 @@ export default function HomeScreen() {
 
   const fetchAllClothes = async () => {
     try {
-      const res = await axios.get("http://192.168.1.42:4001/api/clothing", {
+      const res = await axios.get("http://localhost:4001/api/clothing", {
         params: { userId },
         headers: {
           Authorization: `Bearer ${userToken}`,
@@ -61,7 +62,7 @@ export default function HomeScreen() {
   
   const fetchOutfits = async () => {
     try {
-      const res = await axios.get("http://192.168.1.42:4001/api/outfits", {
+      const res = await axios.get("http://localhost:4001/api/outfits", {
         headers: {
           Authorization: `Bearer ${userToken}`,
         },
@@ -139,19 +140,23 @@ export default function HomeScreen() {
   
   return (
       <View style={tw`flex-1 bg-white pt-20 px-4`}>
+        <View style={tw`items-end mb-4`}>
+  <TokenDialog />
+</View>
+
         {loading ? (
         <ActivityIndicator size="large" color="gray" style={tw`mt-10`} />
       ) : weatherData ? (
         <>
           <View style={tw`items-center mb-6`}>
-            <View style={tw`flex-row items-center`}>
-              <Text style={tw`text-3xl font-bold mr-2`}>{city}</Text>
+            <View style={tw`flex-row items-center ml-5`}>
+              <Text style={tw`text-3xl font-bold mx-2`}>{city}</Text>
               <Text style={tw`text-3xl`}>{weatherData.current.condition}</Text>
             </View>
-            <Text style={tw`text-xl text-gray-700`}>
+            <Text style={tw`text-xl text-gray-600`}>
               {weatherData.current.temperature}°C
             </Text>
-            <Text style={tw`text-lg text-gray-600 mt-1`}>
+            <Text style={tw`text-md text-gray-400 mt-1`}>
               {weatherData.current.label}
             </Text>
           </View>
