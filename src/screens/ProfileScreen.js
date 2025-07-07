@@ -88,7 +88,7 @@ const ProfileScreen = () => {
       </View>
 
       {/* Section Informations personnelles */}
-      <View style={tw`p-4`}>
+      {/* <View style={tw`p-4`}>
         <Text style={tw`text-lg font-semibold mb-2`}>Informations personnelles</Text>
         <TouchableOpacity style={tw`flex-row items-center p-3 bg-gray-50 rounded-lg mb-2`}>
           <Ionicons name="person-outline" size={24} color="#333" style={tw`mr-2`} />
@@ -98,10 +98,10 @@ const ProfileScreen = () => {
           <Ionicons name="lock-closed-outline" size={24} color="#333" style={tw`mr-2`} />
           <Text style={tw`text-base`}>Changer le mot de passe</Text>
         </TouchableOpacity>
-      </View>
+      </View> */}
 
       {/* Section Paramètres */}
-      <View style={tw`p-4`}>
+      {/* <View style={tw`p-4`}>
         <Text style={tw`text-lg font-semibold mb-2`}>Paramètres</Text>
         <TouchableOpacity style={tw`flex-row items-center p-3 bg-gray-50 rounded-lg mb-2`}>
           <Ionicons name="notifications-outline" size={24} color="#333" style={tw`mr-2`} />
@@ -111,6 +111,10 @@ const ProfileScreen = () => {
           <Ionicons name="moon-outline" size={24} color="#333" style={tw`mr-2`} />
           <Text style={tw`text-base`}>Mode sombre</Text>
         </TouchableOpacity>
+      </View> */}
+
+      <View style={tw`p-4`}>
+        <Text style={tw`text-lg font-semibold mb-2`}>Token : {userData?.aiTokens || "Chargement..."}</Text>
       </View>
 
       {/* Gestion du compte */}

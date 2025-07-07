@@ -164,21 +164,38 @@ export default function DressingScreen() {
 
   const launchRecommendation = async (style) => {
     setStyleModalVisible(false);
-    
-    const weather = await getWeatherFromLocation();
-    
-    setRecommending(true);
-    try {
-      const response = await axios.post("http://localhost:4002/recommendation", {
-        userId,
-        style,
-        weather,
-      }, {
-        headers: {
-          Authorization: "Bearer " + userToken,
-        },
-      });
   
+    const weather = await getWeatherFromLocation();
+  
+    setRecommending(true);
+  
+    try {
+      const response = await axios.post(
+        "http://localhost:4002/recommendation",
+        {
+          userId,
+          style,
+          weather,
+        },
+        {
+          headers: {
+            Authorization: "Bearer " + userToken,
+          },
+        }
+      );
+  
+      // Gère les cas "erreur métier" (plus de tokens, pas de vêtements, etc.)
+      if (response.data.error || response.data.success === false) {
+        Alert.alert(
+          "Info",
+          response.data.error || "Aucune recommandation possible pour le moment."
+        );
+        setSuggestedIds([]);
+        setSuggestionText(null);
+        return;
+      }
+  
+      // Cas normal : on a une recommandation !
       setSuggestedIds(response.data.selectedItemIds);
       setSuggestionText(response.data.recommendation);
   
@@ -191,29 +208,44 @@ export default function DressingScreen() {
             text: "Oui, enregistrer",
             onPress: async () => {
               try {
-                await axios.post("http://localhost:4001/api/outfits", {
-                  clothingIds: response.data.selectedItemIds,
-                  name: `Tenue ${style} du ${new Date().toLocaleDateString()}`,
-                }, {
-                  headers: { Authorization: "Bearer " + userToken },
-                });
+                await axios.post(
+                  "http://localhost:4001/api/outfits",
+                  {
+                    clothingIds: response.data.selectedItemIds,
+                    name: `Tenue ${style} du ${new Date().toLocaleDateString()}`,
+                  },
+                  {
+                    headers: { Authorization: "Bearer " + userToken },
+                  }
+                );
                 Alert.alert("Tenue enregistrée !");
               } catch (err) {
                 console.error("Erreur enregistrement outfit:", err);
+                Alert.alert("Erreur", "Impossible d'enregistrer la tenue.");
               }
             },
           },
         ]
       );
     } catch (err) {
-      console.error('Erreur recommendation:', err.response?.data || err.message);
-      Alert.alert("Erreur", `Impossible de générer la recommandation.\n${err.response?.data?.error || err.message}`);
+      // Ici, c'est vraiment une erreur technique (réseau, crash serveur, etc.)
+      console.error("Erreur recommendation:", err.response?.data || err.message);
+      const msg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        "Erreur inconnue";
+      Alert.alert(
+        "Erreur",
+        `Impossible de générer la recommandation.\n${msg}`
+      );
+      setSuggestedIds([]);
+      setSuggestionText(null);
     } finally {
       setRecommending(false);
     }
   };
   
-
   const renderSuggestion = () => {
     const filtered = clothingItems.filter((item) => suggestedIds.includes(item.id));
     return (
