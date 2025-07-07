@@ -17,26 +17,23 @@ export default function Register() {
   const handleRegister = async () => {
     if (!email || !password || !confirmPassword) {
       Alert.alert("Erreur", "Merci de remplir tous les champs.");
-      console.log("Merci de remplir tous les champs.");
       return;
     }
-
     if (password !== confirmPassword) {
       Alert.alert("Erreur", "Les mots de passe ne correspondent pas.");
-      console.log("Les mots de passe ne correspondent pas.");
       return;
     }
-      try {
+    try {
+      console.log("Tentative d'inscription avec :", { email, password });
       const response = await axios.post("http://localhost:4000/api/auth/register", { email, password });
-      console.log("Réponse de l'API :", response.data);
-      await login(response.data.token, response.data.user.id);
-      Alert.alert("Succès", "Inscription réussie !");
+      Alert.alert("Succès", "Inscription réussie ! Vérifie tes mails.");
+      navigation.replace("VerifyEmail", { email }); // 👈 Passe l'email dans le paramètre route
     } catch (error) {
       console.error(error);
       Alert.alert("Erreur", "Problème de connexion au serveur.");
-      console.error("Erreur de connexion :", error.response?.data || error.message);
     }
   };
+  
 
   return (
     <SafeAreaView style={styles.safeArea}>

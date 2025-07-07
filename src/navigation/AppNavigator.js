@@ -9,6 +9,9 @@ import HomeScreen from "../screens/HomeScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import PaymentSuccessScreen from "../screens/PaymentSuccessScreen";
 import PaymentCancelScreen from "../screens/PaymentCancelScreen";
+import ForgotPasswordScreen from "../screens/ForgotPasswordScreen";
+import ResetPasswordScreen from "../screens/ResetPasswordScreen";
+import VerifyEmailScreen from "../screens/VerifyEmail";
 import BottomTabNavigator from "./BottomTabNavigator"; // ✅ Import du menu du bas
 
 const Stack = createNativeStackNavigator();
@@ -32,6 +35,9 @@ const AppNavigator = () => {
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
         </>
       )}
     </Stack.Navigator>

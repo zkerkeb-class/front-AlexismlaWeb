@@ -15,6 +15,12 @@ export default function App() {
       if (event.url.includes("payment-cancel")) {
         navigationRef.current?.navigate("PaymentCancel");
       }
+      if (url.includes("reset-password")) {
+        const token = url.split("token=")[1];
+        if (token) {
+          navigationRef.current?.navigate("ResetPassword", { token });
+        }
+      }
     });
     return () => subscription.remove();
   }, []);

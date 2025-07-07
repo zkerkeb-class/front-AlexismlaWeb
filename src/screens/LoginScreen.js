@@ -71,6 +71,10 @@ export default function Login() {
           <Text style={styles.registerText}>Créer un compte</Text>
         </TouchableOpacity>
 
+        {/* Lien vers mot de passe oublié */}
+        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+          <Text style={styles.registerText}>Mot de passe oublié ?</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
