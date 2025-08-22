@@ -21,7 +21,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci || npm i
+      - run: npm ci || npm i --legacy-peer-deps --no-audit --no-fund
       - run: npm run lint --if-present || true
 
   test:
@@ -33,7 +33,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci || npm i
+      - run: npm ci || npm i --legacy-peer-deps --no-audit --no-fund
       - run: npm test --if-present -- --ci --reporters=default
 
   build:
