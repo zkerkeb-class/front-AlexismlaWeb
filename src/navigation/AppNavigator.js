@@ -19,6 +19,8 @@ const Stack = createNativeStackNavigator();
 const AppNavigator = () => {
   const { userToken } = useContext(AuthContext);
 
+  console.log("🔄 AppNavigator - userToken:", userToken ? "✅ Connecté" : "❌ Non connecté");
+
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {userToken ? (

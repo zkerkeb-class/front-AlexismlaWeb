@@ -1,10 +1,10 @@
 import React, { useEffect } from "react";
-import { Alert } from "react-native";
 import * as Linking from "expo-linking";
 import { NavigationContainer } from "@react-navigation/native";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { AuthProvider } from "./src/context/AuthContext";
-import { navigationRef } from "./src/navigation/navigationRef"; // si tu utilises navigationRef pour la navigation
+import { navigationRef } from "./src/navigation/navigationRef";
+import Toast from 'react-native-toast-message';
 
 export default function App() {
   useEffect(() => {
@@ -29,6 +29,7 @@ export default function App() {
     <AuthProvider>
       <NavigationContainer ref={navigationRef}>
         <AppNavigator />
+        <Toast />
       </NavigationContainer>
     </AuthProvider>
   );
