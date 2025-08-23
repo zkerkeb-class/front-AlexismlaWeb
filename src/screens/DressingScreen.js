@@ -9,6 +9,8 @@ import * as Location from "expo-location";
 import axios from "axios";
 import { AuthContext } from "../context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DressingScreen() {
   const [clothingItems, setClothingItems] = useState([]);
@@ -246,33 +248,6 @@ export default function DressingScreen() {
     }
   };
   
-  const renderSuggestion = () => {
-    const filtered = clothingItems.filter((item) => suggestedIds.includes(item.id));
-    return (
-      <View style={tw`mb-4`}>
-         <TouchableOpacity onPress={() => {
-          setSuggestedIds([]);
-          setSuggestionText("");
-        }}>
-          <Ionicons name="close" size={26} color="black" />
-        </TouchableOpacity>
-        <Text style={tw`text-lg font-semibold mb-2`}>✨ Tenue suggérée :</Text>
-        <Text style={tw`italic text-base mb-2`}>{suggestionText}</Text>
-        <FlatList
-          horizontal
-          data={filtered}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={tw`mr-3 items-center`}>
-              <Image source={{ uri: item.imageUrl }} style={tw`w-32 h-32 rounded-lg`} resizeMode="cover" />
-              <Text style={tw`text-sm mt-1`}>{item.type} - {item.brand}</Text>
-            </View>
-          )}
-          showsHorizontalScrollIndicator={false}
-        />
-      </View>
-    );
-  };
 
   const uniqueValues = (key) => {
     const values = clothingItems.map((item) => item[key]).filter(Boolean);
@@ -284,15 +259,6 @@ export default function DressingScreen() {
   const seasons = uniqueValues("season");
   const styles = uniqueValues("style");
   
-
-  const FilterButton = ({ label, value, selected, onPress }) => (
-    <TouchableOpacity
-      onPress={() => onPress(selected ? "" : value)}
-      style={tw`px-4 py-2 rounded-full mr-2 mb-2 ${selected ? "bg-blue-500" : "bg-gray-200"}`}
-    >
-      <Text style={tw`${selected ? "text-white" : "text-gray-800"} text-sm`}>{label}</Text>
-    </TouchableOpacity>
-  );
 
   const filteredClothingItems = clothingItems.filter((item) => {
     const { type, color, season, style } = filters;
@@ -306,138 +272,208 @@ export default function DressingScreen() {
   
   
 
-  return (
-    <View style={tw`flex-1 bg-white p-5 pt-15`}>
-      <Text style={tw`text-2xl font-bold mb-4`}>Mon Dressing</Text>
-      {suggestedIds.length > 0 && renderSuggestion()}
-      <TouchableOpacity
-        onPress={toggleFilters}
-        style={tw`mb-3 bg-gray-100 w-45 px-4 py-2 rounded-full flex-row items-center gap-2`}
+  // HEADER HERO
+  const renderHeader = () => (
+    <LinearGradient
+      colors={["#f3e7e9", "#a7bfff"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={tw`rounded-b-3xl pb-6 px-4 pt-2 mb-2`}
+    >
+      <View style={tw`flex-row items-center justify-between mt-2`}>
+        <View style={tw`flex-row items-center`}>
+          <Ionicons name="ios-archive" size={36} color="#6366F1" style={tw`mr-2`} />
+          <Text style={tw`text-3xl font-extrabold text-gray-900`}>Mon Dressing</Text>
+        </View>
+        <View style={tw`ml-2 bg-white rounded-full p-2 shadow-sm`}>
+          <Ionicons name="person" size={26} color="#6366F1" />
+        </View>
+      </View>
+      <Text style={tw`text-base text-gray-500 mt-4 ml-1`}>Ta garde-robe virtuelle, stylée et intelligente 👗✨</Text>
+    </LinearGradient>
+  );
+
+  // CARTE SUGGESTION IA
+  const renderSuggestion = () => {
+    const filtered = clothingItems.filter((item) => suggestedIds.includes(item.id));
+    return (
+      <LinearGradient
+        colors={["#a7bfff", "#f3e7e9"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={tw`rounded-2xl p-5 mb-4 shadow-lg`}
       >
-        <Text style={tw`text-sm text-black`}>
-          {showFilters ? "Masquer les filtres" : "Afficher les filtres"}
-        </Text>
-        <Animated.View style={rotateStyle}>
-          <Ionicons name="chevron-down" size={16} color="black" />
-        </Animated.View>
-      </TouchableOpacity>
+        <TouchableOpacity onPress={() => { setSuggestedIds([]); setSuggestionText(""); }} style={tw`absolute right-3 top-3 z-10`}>
+          <Ionicons name="close" size={26} color="#6366F1" />
+        </TouchableOpacity>
+        <View style={tw`flex-row items-center mb-2`}>
+          <Text style={tw`text-2xl mr-2`}>🪄</Text>
+          <Text style={tw`text-lg font-bold text-blue-900`}>Tenue suggérée</Text>
+        </View>
+        <Text style={tw`italic text-base mb-2 text-gray-700`}>{suggestionText}</Text>
+        <FlatList
+          horizontal
+          data={filtered}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={tw`mr-3 items-center`}>
+              <Image source={{ uri: item.imageUrl }} style={tw`w-28 h-28 rounded-2xl border-2 border-blue-200`} resizeMode="cover" />
+              <Text style={tw`text-sm mt-1 font-semibold text-blue-900`}>{item.type} - {item.brand}</Text>
+            </View>
+          )}
+          showsHorizontalScrollIndicator={false}
+        />
+        <TouchableOpacity style={tw`mt-4 bg-green-500 py-2 px-6 rounded-full self-center shadow`}>
+          <Text style={tw`text-white font-bold text-base`}>Valider la tenue</Text>
+        </TouchableOpacity>
+      </LinearGradient>
+    );
+  };
 
+  // CHIPS FILTRES COLORÉES
+  const FilterButton = ({ label, value, selected, onPress }) => (
+    <TouchableOpacity
+      onPress={() => onPress(selected ? "" : value)}
+      style={tw`px-4 py-2 rounded-full mr-2 mb-2 ${selected ? "bg-blue-500" : "bg-blue-100"}`}
+    >
+      <Text style={tw`${selected ? "text-white" : "text-blue-800"} text-sm font-semibold`}>{label}</Text>
+    </TouchableOpacity>
+  );
 
-
-      {showFilters && (
-        <ScrollView style={tw`p-4 mb-6 h-50 bg-gray-100 rounded-lg`}>
-          <Text style={tw`text-sm font-semibold mb-1`}>Type :</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`mb-1`}>
-            {types.map((t) => (
-              <FilterButton
-                key={t}
-                label={t}
-                value={t}
-                selected={filters.type === t}
-                onPress={(val) => setFilters({ ...filters, type: val })}
-              />
-            ))}
-          </ScrollView>
-
-          <Text style={tw`text-sm font-semibold mb-1`}>Couleur :</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`mb-1`}>
-            {colors.map((c) => (
-              <FilterButton
-                key={c}
-                label={c}
-                value={c}
-                selected={filters.color === c}
-                onPress={(val) => setFilters({ ...filters, color: val })}
-              />
-            ))}
-          </ScrollView>
-
-          <Text style={tw`text-sm font-semibold mt-3 mb-1`}>Saison :</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`mb-1`}>
-          {seasons.map((s) => (
-            <FilterButton
-              key={s}
-              label={s}
-              value={s}
-              selected={filters.season === s}
-              onPress={(val) => setFilters({ ...filters, season: val })}
-            />
-          ))}
-          </ScrollView>
-
-          <Text style={tw`text-sm font-semibold mt-3 mb-1`}>Style :</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`mb-1`}>
-          {styles.map((s) => (
-            <FilterButton
-              key={s}
-              label={s}
-              value={s}
-              selected={filters.style === s}
-              onPress={(val) => setFilters({ ...filters, style: val })}
-            />
-          ))}
-          </ScrollView>
-
-          <TouchableOpacity
-            onPress={() => setFilters({ type: "", color: "", season: "", style: "" })}
-            style={tw`bg-red-500 mt-3 mb-5 py-2 px-4 rounded-full self-start`}
-          >
-            <Text style={tw`text-white text-sm`}>Réinitialiser les filtres</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      )}
-
-<FlatList
-  data={filteredClothingItems}
-  keyExtractor={(item) => item.id}
-  numColumns={2}
-  renderItem={({ item }) => {
+  // CARTE VÊTEMENT
+  const renderClothingCard = ({ item }) => {
     const isSuggested = suggestedIds.includes(item.id);
     return (
       <View style={tw`flex-1 justify-center items-center mb-4`}>
         <TouchableOpacity
-          style={tw`h-50 w-40 items-center mb-4 p-2 border rounded-lg ${isSuggested ? "border-green-500 border-2" : ""}`}
+          style={tw`h-52 w-45 items-center mb-4 p-2 rounded-2xl bg-white shadow-lg ${isSuggested ? "border-2 border-green-400" : "border border-gray-200"}`}
           onPress={() => openModal(item)}
+          activeOpacity={0.85}
         >
-          <Image source={{ uri: item.imageUrl }} style={tw`w-30 h-30 mb-2 rounded`} resizeMode="cover" />
-          <Text style={tw`font-bold text-lg text-center`}>
-            {item.type.toUpperCase()} - {item.brand.toUpperCase()}
-          </Text>
+          <Image source={{ uri: item.imageUrl }} style={tw`w-28 h-28 mb-2 rounded-xl`} resizeMode="cover" />
+          <Text style={tw`font-bold text-base text-center text-blue-900`}>{item.type.toUpperCase()}</Text>
+          <Text style={tw`text-xs text-gray-500`}>{item.brand}</Text>
+          <View style={tw`flex-row flex-wrap flex-row justify-center items-center mt-1 w-full`}>
+            {item.style && <Tag label={item.style} color="#fce7f3" textColor="#db2777" />}
+            {item.season && <Tag label={item.season} color="#d1fae5" textColor="#059669" />}
+          </View>
         </TouchableOpacity>
       </View>
     );
-  }}
-/>
+  };
 
+  // BOUTONS FLOTTANTS
+  const renderFloatingButtons = () => (
+    <View style={tw`absolute bottom-8 right-8 flex-row gap-4`}>
+      <TouchableOpacity style={tw`bg-black w-14 h-14 rounded-full justify-center items-center shadow-lg`} onPress={pickAndSendImage}>
+        <Ionicons name="add" size={26} color="white" />
+      </TouchableOpacity>
+      <TouchableOpacity style={tw`bg-blue-600 w-14 h-14 rounded-full justify-center items-center shadow-lg`} onPress={() => setStyleModalVisible(true)}>
+        <Ionicons name="sparkles-outline" size={26} color="white" />
+      </TouchableOpacity>
+    </View>
+  );
 
-      <Modal visible={styleModalVisible} transparent animationType="slide">
-        <View style={tw`flex-1 justify-end bg-black bg-opacity-50`}>
-          <View style={tw`bg-white p-5 rounded-t-xl`}>
-            <Text style={tw`text-lg font-bold mb-4`}>Choisis ton style</Text>
-            {['Décontracté', 'Chic', 'Sport', 'Streetwear', 'Classique'].map((style) => (
-              <TouchableOpacity
-                key={style}
-                style={tw`mb-3 bg-gray-200 p-3 rounded`}
-                onPress={() => launchRecommendation(style)}
-              >
-                <Text style={tw`text-center`}>{style}</Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity onPress={() => setStyleModalVisible(false)}>
-              <Text style={tw`text-center text-red-500 mt-2`}>Annuler</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+  // Ajout du composant Tag réutilisable
+  const Tag = ({ label, color, textColor }) => (
+    <View style={[
+      tw`px-2 py-0.5 rounded-full mr-1 mb-1`,
+      { backgroundColor: color || "#e0e7ff" }
+    ]}>
+      <Text style={[
+        tw`text-xs font-semibold`,
+        { color: textColor || "#3730a3" }
+      ]}>{label}</Text>
+    </View>
+  );
 
-      <View style={tw`absolute bottom-8 right-8 flex-row gap-4`}>
-        <TouchableOpacity style={tw`bg-black w-14 h-14 rounded-full justify-center items-center shadow-lg`} onPress={pickAndSendImage}>
-          <Ionicons name="add" size={26} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity style={tw`bg-blue-600 w-14 h-14 rounded-full justify-center items-center shadow-lg`} onPress={() => setStyleModalVisible(true)}>
-          <Ionicons name="sparkles-outline" size={26} color="white" />
-        </TouchableOpacity>
+  return (
+    <SafeAreaView edges={["top"]} style={tw`bg-gray-50`}>
+      <View style={tw`pt-6 pb-2 items-center bg-gray-50`}>
+        <Text style={tw`text-2xl font-bold text-gray-900 mb-2`}>Mon Profil</Text>
       </View>
+      <FlatList
+        data={filteredClothingItems}
+        keyExtractor={(item) => item.id}
+        numColumns={2}
+        renderItem={renderClothingCard}
+        ListHeaderComponent={
+          <>
+            {suggestedIds.length > 0 && renderSuggestion()}
+            <TouchableOpacity
+              onPress={toggleFilters}
+              style={tw`mb-3 bg-blue-50 w-45 px-4 py-2 rounded-full flex-row items-center gap-2 self-start`}
+            >
+              <Text style={tw`text-sm text-blue-900 font-semibold`}>
+                {showFilters ? "Masquer les filtres" : "Afficher les filtres"}
+              </Text>
+              <Animated.View style={rotateStyle}>
+                <Ionicons name="chevron-down" size={16} color="#6366F1" />
+              </Animated.View>
+            </TouchableOpacity>
+            {showFilters && (
+              <View style={tw`p-4 mb-6 bg-blue-50 rounded-lg`}>
+                <Text style={tw`text-sm font-semibold mb-1 text-blue-900`}>Type :</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`mb-1`}>
+                  {types.map((t) => (
+                    <FilterButton
+                      key={t}
+                      label={t}
+                      value={t}
+                      selected={filters.type === t}
+                      onPress={(val) => setFilters({ ...filters, type: val })}
+                    />
+                  ))}
+                </ScrollView>
+                <Text style={tw`text-sm font-semibold mb-1 text-blue-900`}>Couleur :</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`mb-1`}>
+                  {colors.map((c) => (
+                    <FilterButton
+                      key={c}
+                      label={c}
+                      value={c}
+                      selected={filters.color === c}
+                      onPress={(val) => setFilters({ ...filters, color: val })}
+                    />
+                  ))}
+                </ScrollView>
+                <Text style={tw`text-sm font-semibold mt-3 mb-1 text-blue-900`}>Saison :</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`mb-1`}>
+                  {seasons.map((s) => (
+                    <FilterButton
+                      key={s}
+                      label={s}
+                      value={s}
+                      selected={filters.season === s}
+                      onPress={(val) => setFilters({ ...filters, season: val })}
+                    />
+                  ))}
+                </ScrollView>
+                <Text style={tw`text-sm font-semibold mt-3 mb-1 text-blue-900`}>Style :</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`mb-1`}>
+                  {styles.map((s) => (
+                    <FilterButton
+                      key={s}
+                      label={s}
+                      value={s}
+                      selected={filters.style === s}
+                      onPress={(val) => setFilters({ ...filters, style: val })}
+                    />
+                  ))}
+                </ScrollView>
+                <TouchableOpacity
+                  onPress={() => setFilters({ type: "", color: "", season: "", style: "" })}
+                  style={tw`bg-red-500 mt-3 mb-5 py-2 px-4 rounded-full self-start`}
+                >
+                  <Text style={tw`text-white text-sm`}>Réinitialiser les filtres</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
+        }
+        contentContainerStyle={tw`pb-32 px-2`}
+      />
+      {renderFloatingButtons()}
       <Modal visible={modalVisible} transparent animationType="slide">
   <View style={tw`flex-1 justify-center items-center bg-black bg-opacity-60`}>
     <View style={tw`bg-white w-11/12 p-5 rounded-xl`}>
@@ -449,9 +485,12 @@ export default function DressingScreen() {
           />
           <Text style={tw`text-xl font-bold`}>{selectedItem.type}</Text>
           <Text style={tw`text-base text-gray-600`}>{selectedItem.brand}</Text>
-          <Text style={tw`text-sm text-gray-500 mt-2`}>Couleur : {selectedItem.color}</Text>
-          <Text style={tw`text-sm text-gray-500`}>Style : {selectedItem.style || "N/A"}</Text>
-          <Text style={tw`text-sm text-gray-500`}>Saison : {selectedItem.season || "N/A"}</Text>
+          {/* Tags harmonisés */}
+          <View style={tw`flex-row flex-wrap mt-3 mb-2`}>
+            {selectedItem.color && <Tag label={selectedItem.color} color="#dbeafe" textColor="#2563eb" />}
+            {selectedItem.style && <Tag label={selectedItem.style} color="#fce7f3" textColor="#db2777" />}
+            {selectedItem.season && <Tag label={selectedItem.season} color="#d1fae5" textColor="#059669" />}
+          </View>
           <Text style={tw`text-sm text-gray-500`}>Ajouté le : {new Date(selectedItem.createdAt).toLocaleDateString()}</Text>
 
           <View style={tw`mt-4`}>
@@ -570,6 +609,6 @@ export default function DressingScreen() {
   </View>
 </Modal>
 
-    </View>
+    </SafeAreaView>
   );
 }
