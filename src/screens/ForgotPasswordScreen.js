@@ -35,7 +35,7 @@ export default function ForgotPasswordScreen() {
       return;
     }
     try {
-      await axios.post("http://localhost:4000/api/auth/forgot-password", { email });
+      await axios.post("http://localhost:8081/auth/api/auth/forgot-password", { email });
       showToast("Email de réinitialisation envoyé !", "success");
       navigation.navigate("ResetPassword");
     } catch (err) {

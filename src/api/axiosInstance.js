@@ -5,11 +5,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const getBaseURL = () => {
   // Pour le développement sur émulateur
   if (__DEV__) {
-    return "http://localhost:4000";
+    return "http://localhost:8081";
   }
   // Pour les tests sur appareil physique, utilise ton IP réseau
   // Remplace par ton IP réseau si nécessaire
-  return "http://192.168.1.XXX:4000"; // À adapter selon ton réseau
+  return "http://192.168.1.XXX:8081"; // À adapter selon ton réseau
 };
 
 const api = axios.create({

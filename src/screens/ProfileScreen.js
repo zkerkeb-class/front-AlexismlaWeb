@@ -1,10 +1,11 @@
-import { View, Text, Image, TouchableOpacity, ScrollView, Alert, TextInput, SafeAreaView } from "react-native";
+import { View, Text, Image, TouchableOpacity, ScrollView, Alert, TextInput, SafeAreaView, Modal, Linking } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import tw from "twrnc";
 import { AuthContext } from "../context/AuthContext";
 import React, { useEffect, useState, useContext } from "react";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import axios from "axios";
+import { useFocusEffect } from "@react-navigation/native";
 
 const ProfileScreen = () => {
     const { logout, userId, userToken } = useContext(AuthContext);
@@ -12,30 +13,49 @@ const ProfileScreen = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [editedData, setEditedData] = useState({});
     const [showMore, setShowMore] = useState(false);
+    const [tokenModalVisible, setTokenModalVisible] = useState(false);
+    const [selectedTokenPack, setSelectedTokenPack] = useState(null);
+    const [paymentLoading, setPaymentLoading] = useState(false);
 
     // Options pour les sélecteurs
     const genres = ["Homme", "Femme", "Autre"];
     const morphologies = ["A", "V", "H", "O", "X"];
+    
+    // Packs de tokens disponibles
+    const tokenPacks = [
+      { id: "pack_5", tokens: 5, price: 4.99, priceId: "price_1Rhx9yBBKItnJKUIM5zOBJnJ", popular: false },
+      { id: "pack_10", tokens: 10, price: 8.99, priceId: "price_1RhxHLBBKItnJKUIJvaGnwex", popular: true },
+      { id: "pack_25", tokens: 25, price: 19.99, priceId: "price_1RhxHrBBKItnJKUIq21KbunH", popular: false },
+    ];
+
+    const fetchUser = async () => {
+      try {
+        const response = await axios.get(`http://localhost:8081/bdd/api/users/${userId}`, {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+          },
+        });
+        setUserData(response.data);
+        setEditedData(response.data);
+      } catch (error) {
+        console.error("Erreur lors de la récupération de l'utilisateur :", error);
+      }
+    };
 
     useEffect(() => {
-      const fetchUser = async () => {
-        try {
-          const response = await axios.get(`http://localhost:4001/api/users/${userId}`, {
-            headers: {
-              Authorization: `Bearer ${userToken}`,
-            },
-          });
-          setUserData(response.data);
-          setEditedData(response.data);
-        } catch (error) {
-          console.error("Erreur lors de la récupération de l'utilisateur :", error);
-        }
-      };
-    
       if (userId && userToken) {
         fetchUser();
       }
     }, [userId, userToken]);
+
+    // Rafraîchir les données à chaque fois qu'on revient sur l'écran
+    useFocusEffect(
+      React.useCallback(() => {
+        if (userId && userToken) {
+          fetchUser();
+        }
+      }, [userId, userToken])
+    );
     
     const handleLogout = async () => {
         await logout();
@@ -44,7 +64,7 @@ const ProfileScreen = () => {
 
     const handleSaveProfile = async () => {
       try {
-        const response = await axios.put(`http://localhost:4001/api/users/${userId}`, editedData, {
+        const response = await axios.put(`http://localhost:8081/bdd/api/users/${userId}`, editedData, {
           headers: {
             Authorization: `Bearer ${userToken}`,
           },
@@ -56,6 +76,70 @@ const ProfileScreen = () => {
       } catch (error) {
         console.error("Erreur mise à jour profil:", error);
         Alert.alert("Erreur", "Impossible de mettre à jour le profil.");
+      }
+    };
+
+    const handleTokenPurchase = async (pack) => {
+      setPaymentLoading(true);
+      try {
+        console.log("🔄 Début de l'achat de tokens...", pack);
+        
+        // Créer une session de paiement Stripe
+        const response = await axios.post(
+          "http://localhost:8081/payment/api/payment/checkout",
+          {
+            userId: userId,
+            priceId: pack.priceId,
+            tokenAmount: pack.tokens
+          },
+          {
+            headers: { Authorization: "Bearer " + userToken }
+          }
+        );
+        
+        console.log("✅ Session de paiement créée:", response.data);
+        
+        if (response.data.url) {
+          // Ouvrir l'URL de paiement Stripe
+          try {
+            await Linking.openURL(response.data.url);
+            
+            // En développement, ajouter les tokens manuellement après 10 secondes
+            setTimeout(async () => {
+              try {
+                console.log("🔄 Simulation webhook - ajout des tokens...");
+                const updateResponse = await axios.put(
+                  `http://localhost:8081/bdd/api/users/${userId}/reset-tokens`,
+                  {
+                    aiTokens: pack.tokens,
+                    lastTokenReset: new Date()
+                  },
+                  {
+                    headers: { Authorization: "Bearer " + userToken }
+                  }
+                );
+                console.log("✅ Tokens ajoutés:", updateResponse.data);
+                fetchUser(); // Recharger les données
+                Alert.alert("Succès", `${pack.tokens} tokens ajoutés à votre compte !`);
+              } catch (error) {
+                console.error("❌ Erreur simulation webhook:", error);
+                Alert.alert("Info", "Vérifiez votre profil pour voir si les tokens ont été ajoutés.");
+              }
+            }, 10000);
+            
+          } catch (error) {
+            console.error("❌ Erreur ouverture URL Stripe:", error);
+            Alert.alert("Erreur", "Impossible d'ouvrir la page de paiement.");
+          }
+        }
+      } catch (error) {
+        console.error("❌ Erreur achat tokens:", error);
+        Alert.alert(
+          "Erreur", 
+          "Impossible de procéder au paiement.\n" + (error.response?.data?.error || error.message)
+        );
+      } finally {
+        setPaymentLoading(false);
       }
     };
 
@@ -73,7 +157,7 @@ const ProfileScreen = () => {
                 text: "Supprimer",
                 onPress: async () => {
                   try {
-                    const response = await axios.delete(`http://localhost:4001/api/users/${userId}`,
+                    const response = await axios.delete(`http://localhost:8081/bdd/api/users/${userId}`,
                       {
                         headers: {
                           Authorization: `Bearer ${userToken}`,
@@ -100,34 +184,35 @@ const ProfileScreen = () => {
     const renderField = (label, value, key, type = "text", options = null) => {
       if (isEditing) {
         if (type === "picker" && options) {
-          return (
-            <View style={tw`mb-4`}>
-              <Text style={tw`text-sm font-medium text-gray-700 mb-1`}>{label}</Text>
-              <View style={tw`bg-gray-50 border border-gray-300 rounded-lg`}>
-                <Picker
-                  selectedValue={editedData[key] || ""}
-                  onValueChange={(value) => setEditedData({...editedData, [key]: value})}
-                  style={tw`h-12`}
-                >
-                  <Picker.Item label={`Sélectionner ${label}`} value="" />
-                  {options.map(option => (
-                    <Picker.Item key={option} label={option} value={option} />
-                  ))}
-                </Picker>
-              </View>
+                  return (
+          <View style={tw`mb-4`}>
+            <Text style={tw`text-sm font-semibold text-gray-800 mb-2`}>{label}</Text>
+            <View style={tw`bg-white border border-gray-300 rounded-2xl overflow-hidden shadow-sm`}>
+              <Picker
+                selectedValue={editedData[key] || ""}
+                onValueChange={(value) => setEditedData({...editedData, [key]: value})}
+                style={tw`h-14 text-gray-900`}
+              >
+                <Picker.Item label={`Sélectionner ${label}`} value="" color="#6b7280" />
+                {options.map(option => (
+                  <Picker.Item key={option} label={option} value={option} color="#1f2937" />
+                ))}
+              </Picker>
             </View>
-          );
+          </View>
+        );
         }
         
         return (
           <View style={tw`mb-4`}>
-            <Text style={tw`text-sm font-medium text-gray-700 mb-1`}>{label}</Text>
+            <Text style={tw`text-sm font-semibold text-gray-800 mb-2`}>{label}</Text>
             <TextInput
               value={editedData[key]?.toString() || ""}
               onChangeText={(text) => setEditedData({...editedData, [key]: text})}
-              style={tw`bg-gray-50 border border-gray-300 rounded-lg p-3`}
+              style={tw`bg-white border border-gray-300 rounded-2xl p-4 text-base text-gray-900`}
               keyboardType={type === "numeric" ? "numeric" : "default"}
               placeholder={`Entrez ${label.toLowerCase()}`}
+              placeholderTextColor="#6b7280"
             />
           </View>
         );
@@ -135,10 +220,12 @@ const ProfileScreen = () => {
       
       return (
         <View style={tw`mb-4`}>
-          <Text style={tw`text-sm font-medium text-gray-700 mb-1`}>{label}</Text>
-          <Text style={tw`text-base text-gray-900`}>
-            {value || "Non renseigné"}
-          </Text>
+          <Text style={tw`text-sm font-semibold text-gray-800 mb-2`}>{label}</Text>
+          <View style={tw`bg-white rounded-2xl p-4 border border-gray-200 shadow-sm`}>
+            <Text style={tw`text-base text-gray-900`}>
+              {value || "Non renseigné"}
+            </Text>
+          </View>
         </View>
       );
     };
@@ -147,12 +234,13 @@ const ProfileScreen = () => {
       if (isEditing) {
         return (
           <View style={tw`mb-4`}>
-            <Text style={tw`text-sm font-medium text-gray-700 mb-1`}>{label}</Text>
+            <Text style={tw`text-sm font-semibold text-gray-800 mb-2`}>{label}</Text>
             <TextInput
               value={editedData[key]?.join(", ") || ""}
               onChangeText={(text) => setEditedData({...editedData, [key]: text.split(", ").filter(item => item.trim())})}
-              style={tw`bg-gray-50 border border-gray-300 rounded-lg p-3`}
+              style={tw`bg-white border border-gray-300 rounded-2xl p-4 text-base text-gray-900`}
               placeholder={`Entrez ${label.toLowerCase()} séparés par des virgules`}
+              placeholderTextColor="#6b7280"
             />
           </View>
         );
@@ -160,94 +248,250 @@ const ProfileScreen = () => {
       
       return (
         <View style={tw`mb-4`}>
-          <Text style={tw`text-sm font-medium text-gray-700 mb-1`}>{label}</Text>
-          <Text style={tw`text-base text-gray-900`}>
-            {array && array.length > 0 ? array.join(", ") : "Aucun"}
-          </Text>
+          <Text style={tw`text-sm font-semibold text-gray-800 mb-2`}>{label}</Text>
+          <View style={tw`bg-white rounded-2xl p-4 border border-gray-200 shadow-sm`}>
+            <Text style={tw`text-base text-gray-900`}>
+              {array && array.length > 0 ? array.join(", ") : "Aucun"}
+            </Text>
+          </View>
         </View>
       );
     };
 
   return (
-    <ScrollView style={tw`flex-1 bg-gray-50`} contentContainerStyle={tw`pb-8`}>
-      {/* Header avec SafeAreaView pour le titre */}
-      <SafeAreaView edges={["top"]} style={tw`bg-gray-50`}>
-        <View style={tw`pt-8 pb-3 items-center bg-gray-50`}>
-          <Text style={tw`text-2xl font-bold text-gray-900 mb-2`}>Mon Profil</Text>
-        </View>
-      </SafeAreaView>
-
-      {/* Compteur de tokens IA bien visible */}
-      <View style={tw`mx-4 mb-4 flex-row items-center justify-center`}>
-        <View style={tw`bg-blue-100 px-6 py-3 rounded-2xl shadow flex-row items-center`}>
-          <Ionicons name="sparkles-outline" size={22} color="#2563eb" style={tw`mr-2`} />
-          <Text style={tw`text-lg font-bold text-blue-700`}>Tokens IA : </Text>
-          <Text style={tw`text-lg font-bold text-blue-900`}>{userData?.aiTokens ?? "..."}</Text>
-        </View>
-      </View>
-      {/* Bouton acheter des tokens */}
-      <View style={tw`mx-4 mb-2 flex-row items-center justify-center`}>
-        <TouchableOpacity
-          style={tw`bg-green-500 px-6 py-2 rounded-full shadow`}
-          onPress={() => Alert.alert('Achat de tokens', 'Fonctionnalité à venir !')}
-        >
-          <Text style={tw`text-white font-semibold`}>Acheter des tokens</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Infos principales */}
-      <View style={tw`bg-white mx-4 mb-4 rounded-2xl shadow p-5`}> 
-        <Text style={tw`text-lg font-bold mb-4 text-gray-900`}>Informations principales</Text>
-        {renderField("Email", userData?.email, "email")}
-        {renderField("Genre", userData?.genre, "genre", "picker", genres)}
-        {renderField("Âge", userData?.age, "age", "numeric")}
-        {renderField("Ville", userData?.ville, "ville")}
-        {/* Bouton voir plus */}
-        <TouchableOpacity onPress={() => setShowMore(!showMore)} style={tw`mt-2 self-end`}>
-          <Text style={tw`text-blue-600 font-semibold`}>{showMore ? "Voir moins" : "Voir plus"}</Text>
-        </TouchableOpacity>
-        {showMore && (
-          <View style={tw`mt-4`}> 
-            {renderField("Taille (cm)", userData?.taille, "taille", "numeric")}
-            {renderField("Poids (kg)", userData?.poids, "poids", "numeric")}
-            {renderField("Morphologie", userData?.morphologie, "morphologie", "picker", morphologies)}
-            {renderArrayField("Styles préférés", userData?.stylesPreferes, "stylesPreferes")}
-            {renderArrayField("Couleurs et motifs favoris", userData?.couleursMotifs, "couleursMotifs")}
-            {renderField("Restrictions", userData?.restrictions, "restrictions")}
+            <View style={tw`flex-1 bg-blue-50`}>
+      <ScrollView style={tw`flex-1`} contentContainerStyle={tw`pb-8`} showsVerticalScrollIndicator={false}>
+        {/* Header moderne avec gradient */}
+        <SafeAreaView edges={["top"]} style={tw`bg-transparent`}>
+          <View style={tw`pt-12 pb-6 items-center`}>
+            <Text style={tw`text-3xl font-bold text-gray-900 mb-1`}>Mon Profil</Text>
+            <Text style={tw`text-gray-600`}>{userData?.email}</Text>
           </View>
-        )}
-      </View>
+        </SafeAreaView>
 
-      {/* Actions */}
-      <View style={tw`bg-white mx-4 mb-4 rounded-2xl shadow p-5`}>
-        <View style={tw`flex-row justify-between mb-2`}>
-          <TouchableOpacity
-            style={tw`px-5 py-2 rounded-full ${isEditing ? 'bg-green-500' : 'bg-blue-500'}`}
-            onPress={isEditing ? handleSaveProfile : () => setIsEditing(true)}
-          >
-            <Text style={tw`text-white font-semibold`}>{isEditing ? "Enregistrer" : "Éditer le profil"}</Text>
-          </TouchableOpacity>
-          {isEditing && (
+        {/* Section Tokens IA - Design moderne */}
+        <View style={tw`mx-4 mb-6`}>
+          <View style={tw`bg-blue-200 rounded-3xl p-6 shadow-xl`}>
+            <View style={tw`flex-row items-center justify-between mb-4`}>
+              <View style={tw`flex-row items-center`}>
+                <View style={tw`w-12 h-12 bg-blue-300 rounded-full items-center justify-center mr-3`}>
+                  <Ionicons name="sparkles" size={24} color="#2563eb" />
+                </View>
+                <View>
+                  <Text style={tw`text-lg font-semibold `}>Tokens IA</Text>
+                  <Text style={tw`text-blue-500 text-sm`}>Recommandations disponibles</Text>
+                </View>
+              </View>
+                              <View style={tw`bg-blue-300 rounded-full px-4 py-2`}>
+                <Text style={tw`text-lg font-bold text-blue-700`}>{userData?.aiTokens ?? "0"}</Text>
+              </View>
+            </View>
             <TouchableOpacity
-              style={tw`px-5 py-2 rounded-full bg-gray-400 ml-2`}
-              onPress={() => { setIsEditing(false); setEditedData(userData); }}
+                              style={tw`bg-blue-300 rounded-xl py-3 items-center border border-white/30`}
+              onPress={() => setTokenModalVisible(true)}
             >
-              <Text style={tw`text-white font-semibold`}>Annuler</Text>
+              <Text style={tw`text-blue-700 font-semibold text-lg`}>Acheter des tokens</Text>
             </TouchableOpacity>
-          )}
+          </View>
         </View>
-        <TouchableOpacity
-          style={tw`bg-red-600 p-3 rounded-full w-full items-center mt-2`}
-          onPress={handleLogout}
-        >
-          <Text style={tw`text-white font-semibold`}>Déconnexion</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={tw`flex-row items-center p-3 bg-red-50 rounded-lg mt-3 justify-center`} onPress={ handleDeleteAccount }>
-          <Ionicons name="trash-outline" size={22} color="#ef4444" style={tw`mr-2`} />
-          <Text style={tw`text-base text-red-600`}>Supprimer le compte</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+
+        {/* Section Informations - Design moderne */}
+        <View style={tw`mx-4 mb-6`}>
+          <View style={tw`bg-white rounded-3xl shadow-lg overflow-hidden`}>
+            <View style={tw`bg-gray-100 px-6 py-4 border-b border-gray-200`}>
+              <View style={tw`flex-row items-center justify-between`}>
+                <Text style={tw`text-xl font-bold text-gray-900`}>Informations</Text>
+                <TouchableOpacity
+                  style={tw`bg-blue-600 px-3 py-2 rounded-full shadow-sm`}
+                  onPress={isEditing ? handleSaveProfile : () => setIsEditing(true)}
+                >
+                  <Text style={tw`text-white font-semibold text-sm`}>
+                    {isEditing ? "💾 Sauvegarder" : "✏️ Modifier"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            <View style={tw`p-6`}>
+              {/* Informations principales */}
+              <View style={tw`mb-6`}>
+                <Text style={tw`text-lg font-semibold text-gray-800 mb-4`}>Informations principales</Text>
+                <View style={tw`gap-4`}>
+                  {renderField("Email", userData?.email, "email")}
+                  {renderField("Genre", userData?.genre, "genre", "picker", genres)}
+                  {renderField("Âge", userData?.age, "age", "numeric")}
+                  {renderField("Ville", userData?.ville, "ville")}
+                </View>
+              </View>
+
+              {/* Bouton voir plus */}
+              <TouchableOpacity 
+                onPress={() => setShowMore(!showMore)} 
+                style={tw`bg-blue-50 rounded-xl p-3 items-center border border-blue-200`}
+              >
+                <View style={tw`flex-row items-center`}>
+                  <Ionicons name={showMore ? "chevron-up" : "chevron-down"} size={18} color="#2563eb" />
+                  <Text style={tw`text-blue-700 font-semibold ml-2 text-sm`}>
+                    {showMore ? "Masquer les détails" : "Voir plus de détails"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Informations détaillées */}
+              {showMore && (
+                <View style={tw`mt-6 gap-4`}> 
+                  <Text style={tw`text-lg font-semibold text-gray-800 mb-4`}>Détails personnels</Text>
+                  {renderField("Taille (cm)", userData?.taille, "taille", "numeric")}
+                  {renderField("Poids (kg)", userData?.poids, "poids", "numeric")}
+                  {renderField("Morphologie", userData?.morphologie, "morphologie", "picker", morphologies)}
+                  {renderArrayField("Styles préférés", userData?.stylesPreferes, "stylesPreferes")}
+                  {renderArrayField("Couleurs et motifs favoris", userData?.couleursMotifs, "couleursMotifs")}
+                  {renderField("Restrictions", userData?.restrictions, "restrictions")}
+                </View>
+              )}
+
+              {/* Bouton annuler si en mode édition */}
+              {isEditing && (
+                <TouchableOpacity
+                  style={tw`bg-gray-100 rounded-xl py-2 items-center mt-4 border border-gray-300`}
+                  onPress={() => { setIsEditing(false); setEditedData(userData); }}
+                >
+                  <Text style={tw`text-gray-800 font-semibold text-sm`}>Annuler les modifications</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+
+        {/* Section Actions - Design moderne */}
+        <View style={tw`mx-4 mb-6`}>
+          <View style={tw`bg-white rounded-3xl shadow-lg overflow-hidden`}>
+                        <View style={tw`bg-gray-100 px-6 py-4 border-b border-gray-200`}>
+              <Text style={tw`text-xl font-bold text-gray-900`}>Actions</Text>
+            </View>
+            
+            <View style={tw`p-6`}>
+              <TouchableOpacity
+                style={tw`rounded-xl py-3 items-center shadow-lg bg-blue-500/20 border border-blue-500 mb-4`}
+                onPress={handleLogout}
+              >
+                <View style={tw`flex-row items-center`}>
+                  <Ionicons name="log-out-outline" size={18} style={tw`mr-2`} color="#2563eb" />
+                  <Text style={tw`text-blue-500 font-semibold text-base`}>Se déconnecter</Text>
+                </View>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={tw`bg-red-50 rounded-xl py-3 items-center border border-red-300`} 
+                onPress={handleDeleteAccount}
+              >
+                <View style={tw`flex-row items-center`}>
+                  <Ionicons name="trash-outline" size={18} color="#dc2626" style={tw`mr-2`} />
+                  <Text style={tw`text-red-700 font-semibold text-base`}>Supprimer le compte</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* Modal de sélection des tokens - Design moderne */}
+              <Modal visible={tokenModalVisible} transparent animationType="slide">
+          <View style={tw`flex-1 justify-center items-center bg-black/60 px-4`}>
+            <View style={tw`bg-white rounded-3xl w-full max-w-sm shadow-2xl`}>
+              {/* Header du modal */}
+              <View style={tw`bg-blue-500 rounded-t-3xl px-4 py-3`}>
+                <View style={tw`flex-row items-center justify-between`}>
+                  <View>
+                    <Text style={tw`text-lg font-bold text-white`}>Pack de Tokens</Text>
+                    <Text style={tw`text-blue-100 text-xs`}>Choisissez votre pack</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setTokenModalVisible(false)}
+                    style={tw`w-6 h-6 bg-white/20 rounded-full items-center justify-center`}
+                  >
+                    <Ionicons name="close" size={16} color="white" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              
+              {/* Contenu du modal */}
+              <View style={tw`p-4`}>
+                <View style={tw`gap-3`}>
+                  {tokenPacks.map((pack) => (
+                    <TouchableOpacity
+                      key={pack.id}
+                      style={tw`my-1 rounded-lg border-2 overflow-hidden shadow-sm ${
+                        selectedTokenPack?.id === pack.id 
+                          ? "border-blue-500 bg-blue-50" 
+                          : "border-gray-200 bg-white"
+                      } ${pack.popular ? "border-yellow-400 bg-yellow-50" : ""}`}
+                      onPress={() => setSelectedTokenPack(pack)}
+                      disabled={paymentLoading}
+                    >
+                      <View style={tw`p-3`}>
+                        <View style={tw`flex-row justify-between items-center`}>
+                          <View style={tw`flex-1`}>
+                            <View style={tw`flex-row items-center mb-1`}>
+                              <Text style={tw`text-base font-bold text-gray-900`}>
+                                {pack.tokens} tokens
+                              </Text>
+                              {pack.popular && (
+                                <View style={tw`bg-yellow-400 px-2 py-1 rounded-full ml-2`}>
+                                  <Text style={tw`text-xs font-bold text-white`}>⭐ POPULAIRE</Text>
+                                </View>
+                              )}
+                            </View>
+                            <Text style={tw`text-lg font-bold text-blue-600`}>
+                              {pack.price}€
+                            </Text>
+                            <Text style={tw`text-xs text-gray-600`}>
+                              {(pack.price / pack.tokens).toFixed(2)}€ par token
+                            </Text>
+                          </View>
+                          <View style={tw`items-end justify-center`}>
+                            <View style={tw`w-5 h-5 rounded-full border-2 items-center justify-center ${
+                              selectedTokenPack?.id === pack.id 
+                                ? "border-blue-500 bg-blue-500" 
+                                : "border-gray-300"
+                            }`}>
+                              {selectedTokenPack?.id === pack.id && (
+                                <Ionicons name="checkmark" size={12} color="white" />
+                              )}
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                
+                {/* Boutons d'action */}
+                <View style={tw`flex-row gap-3 mt-4`}>
+                <TouchableOpacity
+                  style={tw`flex-1 bg-gray-100 rounded-xl py-3 border border-gray-300 justify-center items-center`}
+                  onPress={() => setTokenModalVisible(false)}
+                  disabled={paymentLoading}
+                >
+                  <Text style={tw`text-center font-semibold text-gray-800 text-base`}>Annuler</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={tw`flex-1 bg-blue-500 rounded-xl py-3 shadow-lg justify-center items-center`}
+                  onPress={() => selectedTokenPack && handleTokenPurchase(selectedTokenPack)}
+                  disabled={!selectedTokenPack || paymentLoading}
+                >
+                  <Text style={tw`text-center font-semibold text-white text-base`}>
+                    {paymentLoading ? "⏳ Chargement..." : `💳 Acheter (${selectedTokenPack?.price || 0}€)`}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 };
 

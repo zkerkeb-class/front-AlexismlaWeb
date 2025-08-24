@@ -3,6 +3,8 @@ import {
   View, Text, TouchableOpacity, Alert, Image, FlatList, Modal,
   ScrollView, TextInput, ActivityIndicator, LayoutAnimation, Platform, UIManager, Animated, Easing
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+
 import tw from "twrnc";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
@@ -10,11 +12,11 @@ import axios from "axios";
 import { AuthContext } from "../context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DressingScreen() {
   const [clothingItems, setClothingItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userTokens, setUserTokens] = useState(0);
   const { userId, userToken } = useContext(AuthContext);
   const [selectedItem, setSelectedItem] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -23,6 +25,8 @@ export default function DressingScreen() {
   const [suggestionText, setSuggestionText] = useState("");
   const [styleModalVisible, setStyleModalVisible] = useState(false);
   const [selectedStyle, setSelectedStyle] = useState(null);
+
+
   const [uploading, setUploading] = useState(false);
   const [recommending, setRecommending] = useState(false);
   const [filters, setFilters] = useState({
@@ -39,6 +43,7 @@ export default function DressingScreen() {
 
   useEffect(() => {
     fetchClothingItems();
+    fetchUserTokens();
 
     (async () => {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -52,6 +57,14 @@ export default function DressingScreen() {
         UIManager.setLayoutAnimationEnabledExperimental(true);
     }
   }, []);
+
+  // Rafraîchir les données à chaque fois qu'on revient sur l'écran
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchClothingItems();
+      fetchUserTokens();
+    }, [userId, userToken])
+  );
 
   const rotateStyle = {
     transform: [
@@ -78,7 +91,7 @@ export default function DressingScreen() {
 
   const fetchClothingItems = async () => {
     try {
-      const response = await axios.get('http://localhost:4001/api/clothing', {
+      const response = await axios.get('http://localhost:8081/bdd/api/clothing', {
         params: { userId },
         headers: { Authorization: "Bearer " + userToken },
       });
@@ -87,6 +100,17 @@ export default function DressingScreen() {
       Alert.alert("Erreur", "Impossible de récupérer les vêtements.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUserTokens = async () => {
+    try {
+      const response = await axios.get(`http://localhost:8081/bdd/api/users/${userId}`, {
+        headers: { Authorization: "Bearer " + userToken },
+      });
+      setUserTokens(response.data.aiTokens || 0);
+    } catch (error) {
+      console.log("Erreur récupération tokens:", error);
     }
   };
 
@@ -120,7 +144,7 @@ export default function DressingScreen() {
           name: "photo.jpg",
         });
         formData.append("userId", userId);
-        await axios.post("http://localhost:4002/analyze", formData, {
+        await axios.post("http://localhost:8081/ia/analyze", formData, {
           headers: {
             "Content-Type": "multipart/form-data",
             Authorization: "Bearer " + userToken,
@@ -173,7 +197,7 @@ export default function DressingScreen() {
   
     try {
       const response = await axios.post(
-        "http://localhost:4002/recommendation",
+        "http://localhost:8081/ia/recommendation",
         {
           userId,
           style,
@@ -188,66 +212,79 @@ export default function DressingScreen() {
   
       // Gère les cas "erreur métier" (plus de tokens, pas de vêtements, etc.)
       if (response.data.error || response.data.success === false) {
-        Alert.alert(
-          "Info",
-          response.data.error || "Aucune recommandation possible pour le moment."
-        );
+        console.log("⚠️ Erreur recommandation:", response.data.error);
         setSuggestedIds([]);
         setSuggestionText(null);
-        return;
+        return; // Pas de message, pas de blocage
       }
   
       // Cas normal : on a une recommandation !
+      console.log("🎯 Recommandation reçue:", response.data);
+      console.log("🎯 IDs sélectionnés:", response.data.selectedItemIds);
+      console.log("🎯 Nombre d'IDs:", response.data.selectedItemIds?.length || 0);
       setSuggestedIds(response.data.selectedItemIds);
       setSuggestionText(response.data.recommendation);
-  
-      Alert.alert(
-        "Recommandation générée",
-        "Aimes-tu cette tenue ?",
-        [
-          { text: "Non" },
-          {
-            text: "Oui, enregistrer",
-            onPress: async () => {
-              try {
-                await axios.post(
-                  "http://localhost:4001/api/outfits",
-                  {
-                    clothingIds: response.data.selectedItemIds,
-                    name: `Tenue ${style} du ${new Date().toLocaleDateString()}`,
-                  },
-                  {
-                    headers: { Authorization: "Bearer " + userToken },
-                  }
-                );
-                Alert.alert("Tenue enregistrée !");
-              } catch (err) {
-                console.error("Erreur enregistrement outfit:", err);
-                Alert.alert("Erreur", "Impossible d'enregistrer la tenue.");
-              }
-            },
-          },
-        ]
-      );
+      
+      // Pas d'alerte automatique, l'utilisateur utilise le bouton "Valider"
     } catch (err) {
       // Ici, c'est vraiment une erreur technique (réseau, crash serveur, etc.)
       console.error("Erreur recommendation:", err.response?.data || err.message);
-      const msg =
-        err.response?.data?.error ||
-        err.response?.data?.message ||
-        err.message ||
-        "Erreur inconnue";
-      Alert.alert(
-        "Erreur",
-        `Impossible de générer la recommandation.\n${msg}`
-      );
       setSuggestedIds([]);
       setSuggestionText(null);
     } finally {
       setRecommending(false);
     }
   };
-  
+
+  // Fonction pour valider et créer l'outfit
+  const handleValidateOutfit = async () => {
+    if (suggestedIds.length === 0) {
+      Alert.alert("Erreur", "Aucune tenue suggérée à valider.");
+      return;
+    }
+
+    try {
+      console.log("🔄 Création de l'outfit...");
+      console.log("📋 IDs des vêtements:", suggestedIds);
+      console.log("📋 Nombre d'IDs:", suggestedIds.length);
+      console.log("🔑 Token:", userToken ? "Présent" : "Absent");
+      
+      // Vérifier que les IDs existent dans la base
+      const filtered = clothingItems.filter((item) => suggestedIds.includes(item.id));
+      console.log("✅ Vêtements trouvés dans la base:", filtered.length);
+      console.log("✅ Vêtements:", filtered.map(item => ({ id: item.id, type: item.type, brand: item.brand })));
+      
+      const outfitData = {
+        clothingIds: suggestedIds,
+        name: `Tenue ${selectedStyle} du ${new Date().toLocaleDateString()}`,
+      };
+      console.log("📦 Données à envoyer:", outfitData);
+      
+      const result = await axios.post(
+        "http://localhost:8081/bdd/api/outfits",
+        outfitData,
+        {
+          headers: { Authorization: "Bearer " + userToken },
+        }
+      );
+      console.log("✅ Outfit créé avec succès:", result.data);
+      
+      // Réinitialiser la suggestion
+      setSuggestedIds([]);
+      setSuggestionText("");
+      
+      // Rafraîchir les tokens après création d'outfit
+      fetchUserTokens();
+      
+      Alert.alert("Succès", `Tenue enregistrée avec succès ! (${suggestedIds.length} vêtements)`);
+    } catch (err) {
+      console.error("❌ Erreur enregistrement outfit:", err);
+      console.error("❌ Status:", err.response?.status);
+      console.error("❌ Data:", err.response?.data);
+      console.error("❌ Message:", err.message);
+      Alert.alert("Erreur", `Impossible d'enregistrer la tenue.\n${err.response?.data?.error || err.message}`);
+    }
+  };
 
   const uniqueValues = (key) => {
     const values = clothingItems.map((item) => item[key]).filter(Boolean);
@@ -296,6 +333,9 @@ export default function DressingScreen() {
   // CARTE SUGGESTION IA
   const renderSuggestion = () => {
     const filtered = clothingItems.filter((item) => suggestedIds.includes(item.id));
+    console.log("🎨 Rendu suggestion - IDs demandés:", suggestedIds);
+    console.log("🎨 Rendu suggestion - Vêtements trouvés:", filtered.length);
+    console.log("🎨 Rendu suggestion - Vêtements:", filtered.map(item => ({ id: item.id, type: item.type })));
     return (
       <LinearGradient
         colors={["#a7bfff", "#f3e7e9"]}
@@ -318,12 +358,17 @@ export default function DressingScreen() {
           renderItem={({ item }) => (
             <View style={tw`mr-3 items-center`}>
               <Image source={{ uri: item.imageUrl }} style={tw`w-28 h-28 rounded-2xl border-2 border-blue-200`} resizeMode="cover" />
-              <Text style={tw`text-sm mt-1 font-semibold text-blue-900`}>{item.type} - {item.brand}</Text>
+              <Text style={tw`text-sm mt-1 font-semibold text-blue-900`}>
+                {item.type}{item.brand ? ` - ${item.brand}` : ''}
+              </Text>
             </View>
           )}
           showsHorizontalScrollIndicator={false}
         />
-        <TouchableOpacity style={tw`mt-4 bg-green-500 py-2 px-6 rounded-full self-center shadow`}>
+        <TouchableOpacity 
+          style={tw`mt-4 bg-green-500 py-2 px-6 rounded-full self-center shadow`}
+          onPress={handleValidateOutfit}
+        >
           <Text style={tw`text-white font-bold text-base`}>Valider la tenue</Text>
         </TouchableOpacity>
       </LinearGradient>
@@ -352,7 +397,7 @@ export default function DressingScreen() {
         >
           <Image source={{ uri: item.imageUrl }} style={tw`w-28 h-28 mb-2 rounded-xl`} resizeMode="cover" />
           <Text style={tw`font-bold text-base text-center text-blue-900`}>{item.type.toUpperCase()}</Text>
-          <Text style={tw`text-xs text-gray-500`}>{item.brand}</Text>
+          {item.brand && <Text style={tw`text-xs text-gray-500`}>{item.brand}</Text>}
           <View style={tw`flex-row flex-wrap flex-row justify-center items-center mt-1 w-full`}>
             {item.style && <Tag label={item.style} color="#fce7f3" textColor="#db2777" />}
             {item.season && <Tag label={item.season} color="#d1fae5" textColor="#059669" />}
@@ -364,12 +409,28 @@ export default function DressingScreen() {
 
   // BOUTONS FLOTTANTS
   const renderFloatingButtons = () => (
-    <View style={tw`absolute bottom-8 right-8 flex-row gap-4`}>
-      <TouchableOpacity style={tw`bg-black w-14 h-14 rounded-full justify-center items-center shadow-lg`} onPress={pickAndSendImage}>
-        <Ionicons name="add" size={26} color="white" />
+    <View style={tw`absolute bottom-2 right-6 flex-row gap-3 z-50`}>
+      <TouchableOpacity 
+        style={tw`bg-black w-16 h-16 rounded-full justify-center items-center shadow-xl border-2 border-white`} 
+        onPress={pickAndSendImage}
+      >
+        <Ionicons name="add" size={28} color="white" />
       </TouchableOpacity>
-      <TouchableOpacity style={tw`bg-blue-600 w-14 h-14 rounded-full justify-center items-center shadow-lg`} onPress={() => setStyleModalVisible(true)}>
-        <Ionicons name="sparkles-outline" size={26} color="white" />
+      <TouchableOpacity 
+        style={tw`${userTokens > 0 ? 'bg-blue-600' : 'bg-gray-400'} w-16 h-16 rounded-full justify-center items-center shadow-xl border-2 border-white relative`} 
+        onPress={() => {
+          if (userTokens > 0) {
+            setStyleModalVisible(true);
+          } else {
+            // Indicateur visuel simple
+            console.log("Plus de tokens disponibles");
+          }
+        }}
+      >
+        <Ionicons name="sparkles-outline" size={28} color="white" />
+        <View style={tw`absolute -top-1 -right-1 ${userTokens > 0 ? 'bg-green-500' : 'bg-red-500'} w-6 h-6 rounded-full justify-center items-center`}>
+          <Text style={tw`text-white text-xs font-bold`}>{userTokens}</Text>
+        </View>
       </TouchableOpacity>
     </View>
   );
@@ -388,15 +449,20 @@ export default function DressingScreen() {
   );
 
   return (
-    <SafeAreaView edges={["top"]} style={tw`bg-gray-50`}>
-      <View style={tw`pt-6 pb-2 items-center bg-gray-50`}>
-        <Text style={tw`text-2xl font-bold text-gray-900 mb-2`}>Mon Profil</Text>
+    <View style={tw`flex-1 bg-gray-50`}>
+      <View style={tw`pt-12 pb-2 items-center bg-gray-50`}>
+        <Text style={tw`text-2xl font-bold text-gray-900 mb-2`}>Mon Dressing</Text>
       </View>
       <FlatList
         data={filteredClothingItems}
         keyExtractor={(item) => item.id}
         numColumns={2}
         renderItem={renderClothingCard}
+        refreshing={loading}
+        onRefresh={() => {
+          fetchClothingItems();
+          fetchUserTokens();
+        }}
         ListHeaderComponent={
           <>
             {suggestedIds.length > 0 && renderSuggestion()}
@@ -471,11 +537,11 @@ export default function DressingScreen() {
             )}
           </>
         }
-        contentContainerStyle={tw`pb-32 px-2`}
+        contentContainerStyle={tw`pb-48 px-2`}
       />
       {renderFloatingButtons()}
       <Modal visible={modalVisible} transparent animationType="slide">
-  <View style={tw`flex-1 justify-center items-center bg-black bg-opacity-60`}>
+          <View style={tw`flex-1 justify-center items-center bg-black/60`}>
     <View style={tw`bg-white w-11/12 p-5 rounded-xl`}>
       {selectedItem && !isEditing && (
         <>
@@ -507,7 +573,7 @@ export default function DressingScreen() {
                     text: "Supprimer",
                     onPress: async () => {
                       try {
-                        await axios.delete(`http://localhost:4001/api/clothing/${selectedItem.id}`, {
+                        await axios.delete(`http://localhost:8081/bdd/api/clothing/${selectedItem.id}`, {
                           headers: { Authorization: "Bearer " + userToken },
                         });
                         fetchClothingItems();
@@ -579,7 +645,7 @@ export default function DressingScreen() {
             style={tw`bg-green-500 p-3 rounded`}
             onPress={async () => {
               try {
-                await axios.put(`http://localhost:4001/api/clothing/${selectedItem.id}`, selectedItem, {
+                await axios.put(`http://localhost:8081/bdd/api/clothing/${selectedItem.id}`, selectedItem, {
                   headers: { Authorization: "Bearer " + userToken },
                 });
                 fetchClothingItems();
@@ -601,7 +667,7 @@ export default function DressingScreen() {
   </View>
 </Modal>
 <Modal visible={uploading || recommending} transparent animationType="fade">
-  <View style={tw`flex-1 justify-center items-center bg-black bg-opacity-50`}>
+  <View style={tw`flex-1 justify-center items-center bg-black/50`}>
     <ActivityIndicator size="large" color="#ffffff" />
     <Text style={tw`text-white mt-4`}>
       {uploading ? "Ajout du vêtement en cours..." : "Génération de la recommandation..."}
@@ -609,6 +675,43 @@ export default function DressingScreen() {
   </View>
 </Modal>
 
-    </SafeAreaView>
+{/* Modal de sélection de style */}
+<Modal visible={styleModalVisible} transparent animationType="slide">
+  <View style={tw`flex-1 justify-center items-center bg-black/50`}>
+    <View style={tw`bg-white p-6 rounded-lg w-80 max-h-96`}>
+      <Text style={tw`text-xl font-bold mb-4 text-center`}>Choisis ton style</Text>
+      
+      <ScrollView style={tw`max-h-64`}>
+        {["casual", "sport", "elegant", "business", "streetwear", "vintage", "minimaliste", "coloré"].map((style) => (
+          <TouchableOpacity
+            key={style}
+            style={tw`p-3 mb-2 rounded-lg border ${
+              selectedStyle === style ? "bg-blue-500 border-blue-500" : "bg-gray-50 border-gray-200"
+            }`}
+            onPress={() => {
+              setSelectedStyle(style);
+              launchRecommendation(style);
+            }}
+          >
+            <Text style={tw`text-center font-semibold ${
+              selectedStyle === style ? "text-white" : "text-gray-700"
+            }`}>
+              {style.charAt(0).toUpperCase() + style.slice(1)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+      
+      <TouchableOpacity
+        style={tw`mt-4 p-3 bg-gray-300 rounded-lg`}
+        onPress={() => setStyleModalVisible(false)}
+      >
+        <Text style={tw`text-center font-semibold text-gray-700`}>Annuler</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
+    </View>
   );
 }

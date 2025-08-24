@@ -41,7 +41,7 @@ export default function ResetPasswordScreen() {
       return;
     }
     try {
-      await axios.post("http://localhost:4000/api/auth/reset-password", {
+      await axios.post("http://localhost:8081/auth/api/auth/reset-password", {
         token,
         newPassword: password,
       });
@@ -94,7 +94,7 @@ export default function ResetPasswordScreen() {
 
         {/* Formulaire */}
         <View style={tw`bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6`}>
-          <View style={tw`space-y-4`}>
+          <View style={tw`gap-4`}>
             <View>
               <Text style={tw`text-sm font-medium text-gray-700 mb-2`}>Code de réinitialisation</Text>
               <TextInput

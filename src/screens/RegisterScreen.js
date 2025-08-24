@@ -204,7 +204,7 @@ export default function Register() {
       };
 
       // Appel au service d'authentification pour créer l'utilisateur ET envoyer l'email
-      const response = await axios.post("http://localhost:4000/api/auth/register", userData);
+      const response = await axios.post("http://localhost:8081/auth/api/auth/register", userData);
       
       showToast("Inscription réussie ! Vérifie tes mails.", "success");
       navigation.replace("VerifyEmail", { email });
@@ -256,7 +256,7 @@ export default function Register() {
               <Text style={tw`text-lg font-semibold text-gray-900`}>Informations de base</Text>
             </View>
             
-            <View style={tw`space-y-4`}>
+            <View style={tw`gap-4`}>
               <View>
                 <Text style={tw`text-sm font-medium text-gray-700 mb-2`}>Email</Text>
                 <TextInput
@@ -305,10 +305,10 @@ export default function Register() {
               <Text style={tw`text-lg font-semibold text-gray-900`}>Informations personnelles</Text>
             </View>
             
-            <View style={tw`space-y-4`}>
+            <View style={tw`gap-4`}>
               <View>
                 <Text style={tw`text-sm font-medium text-gray-700 mb-2`}>Genre</Text>
-                <View style={tw`flex-row space-x-2`}>
+                <View style={tw`flex-row gap-2`}>
                   {genres.map(g => (
                     <TouchableOpacity
                       key={g}
@@ -330,7 +330,7 @@ export default function Register() {
                 </View>
               </View>
               
-              <View style={tw`flex-row space-x-3`}>
+              <View style={tw`flex-row gap-3`}>
                 <View style={tw`flex-1`}>
                   <Text style={tw`text-sm font-medium text-gray-700 mb-2`}>Âge</Text>
                   <TextInput

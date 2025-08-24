@@ -9,14 +9,18 @@ import Toast from 'react-native-toast-message';
 export default function App() {
   useEffect(() => {
     const subscription = Linking.addEventListener("url", (event) => {
+      console.log("🔗 Deep link reçu:", event.url);
+      
       if (event.url.includes("payment-success")) {
+        console.log("✅ Paiement réussi, navigation vers PaymentSuccess");
         navigationRef.current?.navigate("PaymentSuccess");
       }
       if (event.url.includes("payment-cancel")) {
+        console.log("❌ Paiement annulé, navigation vers PaymentCancel");
         navigationRef.current?.navigate("PaymentCancel");
       }
-      if (url.includes("reset-password")) {
-        const token = url.split("token=")[1];
+      if (event.url.includes("reset-password")) {
+        const token = event.url.split("token=")[1];
         if (token) {
           navigationRef.current?.navigate("ResetPassword", { token });
         }
