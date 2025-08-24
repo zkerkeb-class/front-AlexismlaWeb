@@ -37,7 +37,7 @@ export default function VerifyEmailScreen() {
       return;
     }
     try {
-      await axios.post("http://localhost:4000/api/auth/verify-email", { email, code: token });
+      await axios.post("http://localhost:8081/auth/api/auth/verify-email", { email, code: token });
       showToast("Ton compte est confirmé !", "success");
       navigation.replace("Login");
     } catch (err) {
@@ -84,7 +84,7 @@ export default function VerifyEmailScreen() {
 
         {/* Formulaire */}
         <View style={tw`bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6`}>
-          <View style={tw`space-y-4`}>
+          <View style={tw`gap-4`}>
             <View>
               <Text style={tw`text-sm font-medium text-gray-700 mb-2`}>Email</Text>
               <TextInput
